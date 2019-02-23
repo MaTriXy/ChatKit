@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ImageView;
@@ -44,7 +45,7 @@ public abstract class DemoMessagesActivity extends AppCompatActivity
 
         imageLoader = new ImageLoader() {
             @Override
-            public void loadImage(ImageView imageView, String url) {
+            public void loadImage(ImageView imageView, String url, Object payload) {
                 Picasso.with(DemoMessagesActivity.this).load(url).into(imageView);
             }
         };
@@ -89,6 +90,7 @@ public abstract class DemoMessagesActivity extends AppCompatActivity
 
     @Override
     public void onLoadMore(int page, int totalItemsCount) {
+        Log.i("TAG", "onLoadMore: " + page + " " + totalItemsCount);
         if (totalItemsCount < TOTAL_MESSAGES_COUNT) {
             loadMessages();
         }

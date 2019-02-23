@@ -19,6 +19,7 @@ package com.stfalcon.chatkit.dialogs;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.support.annotation.LayoutRes;
+import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -51,7 +52,7 @@ import static android.view.View.VISIBLE;
 public class DialogsListAdapter<DIALOG extends IDialog>
         extends RecyclerView.Adapter<DialogsListAdapter.BaseDialogViewHolder> {
 
-    private List<DIALOG> items = new ArrayList<>();
+    protected List<DIALOG> items = new ArrayList<>();
     private int itemLayoutId;
     private Class<? extends BaseDialogViewHolder> holderClass;
     private ImageLoader imageLoader;
@@ -199,7 +200,7 @@ public class DialogsListAdapter<DIALOG extends IDialog>
      */
     public void addItem(DIALOG dialog) {
         items.add(dialog);
-        notifyItemInserted(0);
+        notifyItemInserted(items.size() - 1);
     }
 
     /**
@@ -211,6 +212,17 @@ public class DialogsListAdapter<DIALOG extends IDialog>
     public void addItem(int position, DIALOG dialog) {
         items.add(position, dialog);
         notifyItemInserted(position);
+    }
+
+    /**
+     * Move an item
+     * @param fromPosition the actual position of the item
+     * @param toPosition the new position of the item
+     */
+    public void moveItem(int fromPosition, int toPosition) {
+        DIALOG dialog = items.remove(fromPosition);
+        items.add(toPosition, dialog);
+        notifyItemMoved(fromPosition, toPosition);
     }
 
     /**
@@ -243,6 +255,47 @@ public class DialogsListAdapter<DIALOG extends IDialog>
                 break;
             }
         }
+    }
+
+    /**
+     * Upsert dialog in dialogs list or add it to then end of dialogs list
+     *
+     * @param item dialog item
+     */
+    public void upsertItem(DIALOG item) {
+        boolean updated = false;
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i).getId().equals(item.getId())) {
+                items.set(i, item);
+                notifyItemChanged(i);
+                updated = true;
+                break;
+            }
+        }
+        if (!updated) {
+            addItem(item);
+        }
+    }
+
+    /**
+     * Find an item by its id
+     *
+     * @param id the wanted item's id
+     * @return the found item, or null
+     */
+    @Nullable
+    public DIALOG getItemById(String id) {
+        if (items == null) {
+            items = new ArrayList<>();
+        }
+        for (DIALOG item : items) {
+            if (item.getId() == null && id == null) {
+                return item;
+            } else if (item.getId() != null && item.getId().equals(id)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     /**
@@ -298,19 +351,19 @@ public class DialogsListAdapter<DIALOG extends IDialog>
     }
 
     /**
+     * @return registered image loader
+     */
+    public ImageLoader getImageLoader() {
+        return imageLoader;
+    }
+
+    /**
      * Register a callback to be invoked when image need to load.
      *
      * @param imageLoader image loading method
      */
     public void setImageLoader(ImageLoader imageLoader) {
         this.imageLoader = imageLoader;
-    }
-
-    /**
-     * @return registered image loader
-     */
-    public ImageLoader getImageLoader() {
-        return imageLoader;
     }
 
     /**
@@ -387,6 +440,13 @@ public class DialogsListAdapter<DIALOG extends IDialog>
     //TODO ability to set style programmatically
     void setStyle(DialogListStyle dialogStyle) {
         this.dialogStyle = dialogStyle;
+    }
+
+    /**
+    * @return the position of a dialog in the dialogs list.
+    */
+    public int getDialogPosition(DIALOG dialog) {
+        return this.items.indexOf(dialog);
     }
 
     /*
@@ -584,26 +644,36 @@ public class DialogsListAdapter<DIALOG extends IDialog>
 
             //Set Date
             String formattedDate = null;
-            Date lastMessageDate = dialog.getLastMessage().getCreatedAt();
-            if (datesFormatter != null) formattedDate = datesFormatter.format(lastMessageDate);
-            tvDate.setText(formattedDate == null
-                    ? getDateString(lastMessageDate)
-                    : formattedDate);
+
+            if (dialog.getLastMessage() != null) {
+                Date lastMessageDate = dialog.getLastMessage().getCreatedAt();
+                if (datesFormatter != null) formattedDate = datesFormatter.format(lastMessageDate);
+                tvDate.setText(formattedDate == null
+                        ? getDateString(lastMessageDate)
+                        : formattedDate);
+            } else {
+                tvDate.setText(null);
+            }
 
             //Set Dialog avatar
             if (imageLoader != null) {
-                imageLoader.loadImage(ivAvatar, dialog.getDialogPhoto());
+                imageLoader.loadImage(ivAvatar, dialog.getDialogPhoto(), null);
             }
 
-            //Set Last message user avatar
-            if (imageLoader != null) {
-                imageLoader.loadImage(ivLastMessageUser, dialog.getLastMessage().getUser().getAvatar());
+            //Set Last message user avatar with check if there is last message
+            if (imageLoader != null && dialog.getLastMessage() != null) {
+                imageLoader.loadImage(ivLastMessageUser, dialog.getLastMessage().getUser().getAvatar(), null);
             }
             ivLastMessageUser.setVisibility(dialogStyle.isDialogMessageAvatarEnabled()
-                    && dialog.getUsers().size() > 1 ? VISIBLE : GONE);
+                    && dialog.getUsers().size() > 1
+                    && dialog.getLastMessage() != null ? VISIBLE : GONE);
 
             //Set Last message text
-            tvLastMessage.setText(dialog.getLastMessage().getText());
+            if (dialog.getLastMessage() != null) {
+                tvLastMessage.setText(dialog.getLastMessage().getText());
+            } else {
+                tvLastMessage.setText(null);
+            }
 
             //Set Unread message count bubble
             tvBubble.setText(String.valueOf(dialog.getUnreadCount()));

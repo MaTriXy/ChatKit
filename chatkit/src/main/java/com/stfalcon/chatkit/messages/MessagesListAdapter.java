@@ -49,14 +49,14 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
         extends RecyclerView.Adapter<ViewHolder>
         implements RecyclerScrollMoreListener.OnLoadMoreListener {
 
+    protected static boolean isSelectionModeEnabled;
+
+    protected List<Wrapper> items;
     private MessageHolders holders;
     private String senderId;
-    private List<Wrapper> items;
 
     private int selectedItemsCount;
     private SelectionListener selectionListener;
-
-    protected static boolean isSelectionModeEnabled;
 
     private OnLoadMoreListener loadMoreListener;
     private OnMessageClickListener<MESSAGE> onMessageClickListener;
@@ -127,9 +127,20 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
         }
     }
 
+    @Override
+    public int getMessagesCount() {
+        int count = 0;
+        for (Wrapper item : items) {
+            if (item.item instanceof IMessage) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     /*
-    * PUBLIC METHODS
-    * */
+     * PUBLIC METHODS
+     * */
 
     /**
      * Adds message to bottom of list and scroll if needed.
@@ -157,6 +168,8 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
      * @param reverse  {@code true} if need to reverse messages before adding.
      */
     public void addToEnd(List<MESSAGE> messages, boolean reverse) {
+        if (messages.isEmpty()) return;
+
         if (reverse) Collections.reverse(messages);
 
         if (!items.isEmpty()) {
@@ -178,8 +191,8 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
      *
      * @param message updated message object.
      */
-    public void update(MESSAGE message) {
-        update(message.getId(), message);
+    public boolean update(MESSAGE message) {
+        return update(message.getId(), message);
     }
 
     /**
@@ -188,12 +201,60 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
      * @param oldId      an identifier of message to update.
      * @param newMessage new message object.
      */
-    public void update(String oldId, MESSAGE newMessage) {
+    public boolean update(String oldId, MESSAGE newMessage) {
         int position = getMessagePositionById(oldId);
         if (position >= 0) {
             Wrapper<MESSAGE> element = new Wrapper<>(newMessage);
             items.set(position, element);
             notifyItemChanged(position);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Moves the elements position from current to start
+     *
+     * @param newMessage new message object.
+     */
+    public void updateAndMoveToStart(MESSAGE newMessage) {
+        int position = getMessagePositionById(newMessage.getId());
+        if (position >= 0) {
+            Wrapper<MESSAGE> element = new Wrapper<>(newMessage);
+            items.remove(position);
+            items.add(0, element);
+            notifyItemMoved(position, 0);
+            notifyItemChanged(0);
+        }
+    }
+
+    /**
+     * Updates message by its id if it exists, add to start if not
+     *
+     * @param message message object to insert or update.
+     */
+    public void upsert(MESSAGE message) {
+        if (!update(message)) {
+            addToStart(message, false);
+        }
+    }
+
+    /**
+     * Updates and moves to start if message by its id exists and if specified move to start, if not
+     * specified the item stays at current position and updated
+     *
+     * @param message message object to insert or update.
+     */
+    public void upsert(MESSAGE message, boolean moveToStartIfUpdate) {
+        if (moveToStartIfUpdate) {
+            if (getMessagePositionById(message.getId()) > 0) {
+                updateAndMoveToStart(message);
+            } else {
+                upsert(message);
+            }
+        } else {
+            upsert(message);
         }
     }
 
@@ -212,12 +273,18 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
      * @param messages messages list to delete.
      */
     public void delete(List<MESSAGE> messages) {
+        boolean result = false;
         for (MESSAGE message : messages) {
             int index = getMessagePositionById(message.getId());
-            items.remove(index);
-            notifyItemRemoved(index);
+            if (index >= 0) {
+                items.remove(index);
+                notifyItemRemoved(index);
+                result = true;
+            }
         }
-        recountDateHeaders();
+        if (result) {
+            recountDateHeaders();
+        }
     }
 
     /**
@@ -240,12 +307,18 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
      * @param ids array of identifiers of messages to delete.
      */
     public void deleteByIds(String[] ids) {
+        boolean result = false;
         for (String id : ids) {
             int index = getMessagePositionById(id);
-            items.remove(index);
-            notifyItemRemoved(index);
+            if (index >= 0) {
+                items.remove(index);
+                notifyItemRemoved(index);
+                result = true;
+            }
         }
-        recountDateHeaders();
+        if (result) {
+            recountDateHeaders();
+        }
     }
 
     /**
@@ -258,10 +331,22 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
     }
 
     /**
-     * Clears the messages list.
+     * Clears the messages list. With notifyDataSetChanged
      */
     public void clear() {
-        items.clear();
+        clear(true);
+    }
+
+    /**
+     * Clears the messages list.
+     */
+    public void clear(boolean notifyDataSetChanged) {
+        if (items != null) {
+            items.clear();
+            if (notifyDataSetChanged) {
+                notifyDataSetChanged();
+            }
+        }
     }
 
     /**
@@ -418,8 +503,8 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
     }
 
     /*
-    * PRIVATE METHODS
-    * */
+     * PRIVATE METHODS
+     * */
     private void recountDateHeaders() {
         List<Integer> indicesToDelete = new ArrayList<>();
 
@@ -443,7 +528,7 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
         }
     }
 
-    private void generateDateHeaders(List<MESSAGE> messages) {
+    protected void generateDateHeaders(List<MESSAGE> messages) {
         for (int i = 0; i < messages.size(); i++) {
             MESSAGE message = messages.get(i);
             this.items.add(new Wrapper<>(message));
@@ -600,11 +685,11 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
     }
 
     /*
-    * WRAPPER
-    * */
-    private class Wrapper<DATA> {
-        protected DATA item;
-        protected boolean isSelected;
+     * WRAPPER
+     * */
+    public class Wrapper<DATA> {
+        public DATA item;
+        public boolean isSelected;
 
         Wrapper(DATA item) {
             this.item = item;
@@ -612,8 +697,8 @@ public class MessagesListAdapter<MESSAGE extends IMessage>
     }
 
     /*
-    * LISTENERS
-    * */
+     * LISTENERS
+     * */
 
     /**
      * Interface definition for a callback to be invoked when next part of messages need to be loaded.
