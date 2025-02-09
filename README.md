@@ -1,6 +1,6 @@
 # ChatKit for Android
 
-[ ![Download](https://api.bintray.com/packages/troy379/maven/ChatKit/images/download.svg) ](https://bintray.com/troy379/maven/ChatKit/_latestVersion)
+[![](https://jitpack.io/v/stfalcon-studio/Chatkit.svg)](https://jitpack.io/#stfalcon-studio/Chatkit)
 
 ChatKit is a library designed to simplify the development of UI for such a trivial task as chat. It has flexible possibilities for styling, customizing and data management
 
@@ -41,19 +41,22 @@ To implement all of the features above you can use the following components:
 
 ### Download
 
-Download via Gradle:
-```gradle
-compile 'com.github.stfalcon:chatkit:0.3.3'
+1. Add jitpack to the root build.gradle file of your project at the end of repositories.
 ```
-
-or Maven:
-```xml
-<dependency>
-  <groupId>com.github.stfalcon</groupId>
-  <artifactId>chatkit</artifactId>
-  <version>0.3.3</version>
-  <type>pom</type>
-</dependency>
+allprojects {
+  repositories {
+    ...
+    maven { url 'https://jitpack.io' }
+  }
+}
+```
+2. Add the dependency
+[![](https://jitpack.io/v/stfalcon-studio/Chatkit.svg)](https://jitpack.io/#stfalcon-studio/Chatkit)
+```
+dependencies {
+  ...
+  implementation 'com.github.stfalcon-studio:Chatkit:[last_version]'
+}  
 ```
 
 ### AndroidX
